@@ -237,6 +237,23 @@ pre {
   color: #fca5a5;
 }
 
+.workflow-diagram {
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 0.85rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  display: block;
+}
+
+.workflow-node-rect {
+  transition: opacity 0.3s ease;
+}
+
+.workflow-node-rect:hover {
+  opacity: 1 !important;
+}
+
 @media (max-width: 900px) {
   main {
     grid-template-columns: 1fr;

@@ -28,6 +28,20 @@ interface WebhookResponse {
   };
 }
 
+interface FlowNode {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  type: string;
+  status: 'idle' | 'running' | 'success' | 'failed';
+}
+
+interface FlowConnection {
+  fromId: string;
+  toIds: string[];
+}
+
 type ActionType = 'ai' | 'read-email' | 'create-event';
 
 const defaultWorkflow: WorkflowNode[] = [
@@ -68,6 +82,142 @@ const defaultWorkflow: WorkflowNode[] = [
     status: 'idle'
   }
 ];
+
+interface WorkflowDiagramProps {
+  nodes: WorkflowNode[];
+}
+
+function WorkflowDiagram({ nodes }: WorkflowDiagramProps) {
+  const nodeWidth = 140;
+  const nodeHeight = 80;
+  const verticalGap = 120;
+  const horizontalGap = 200;
+
+  // Create flow nodes with positions
+  const flowNodes: FlowNode[] = nodes.map((node, index) => {
+    const col = Math.floor(index / 2);
+    const row = index % 2;
+    return {
+      id: `node-${index}`,
+      name: node.name,
+      x: col * horizontalGap + 20,
+      y: row * verticalGap + 20,
+      type: node.type,
+      status: node.status
+    };
+  });
+
+  const canvasWidth = Math.max(700, (Math.ceil(nodes.length / 2) + 1) * horizontalGap);
+  const canvasHeight = Math.max(300, 2 * verticalGap + 100);
+
+  const getNodeColor = (status: 'idle' | 'running' | 'success' | 'failed') => {
+    switch (status) {
+      case 'success':
+        return '#10b981';
+      case 'running':
+        return '#f59e0b';
+      case 'failed':
+        return '#ef4444';
+      default:
+        return '#64748b';
+    }
+  };
+
+  return (
+    <svg width="100%" height="350" viewBox={`0 0 ${canvasWidth} ${canvasHeight}`} className="workflow-diagram" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#10b981" />
+        </marker>
+        <marker id="arrowGray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#cbd5e1" />
+        </marker>
+      </defs>
+
+      {/* Draw connections */}
+      {flowNodes.map((node, index) => {
+        if (index === 0 && flowNodes.length > 1) {
+          // Webhook to Router
+          const nextNode = flowNodes[1];
+          return (
+            <line
+              key={`line-${index}`}
+              x1={node.x + nodeWidth / 2}
+              y1={node.y + nodeHeight}
+              x2={nextNode.x + nodeWidth / 2}
+              y2={nextNode.y}
+              stroke="#cbd5e1"
+              strokeWidth="2"
+              markerEnd="url(#arrowGray)"
+            />
+          );
+        } else if (index === 1) {
+          // Router branches to three nodes
+          return (
+            <g key={`connections-${index}`}>
+              {[2, 3, 4].map((targetIdx) => {
+                if (targetIdx < flowNodes.length) {
+                  const target = flowNodes[targetIdx];
+                  return (
+                    <line
+                      key={`line-${index}-${targetIdx}`}
+                      x1={node.x + nodeWidth / 2}
+                      y1={node.y + nodeHeight}
+                      x2={target.x + nodeWidth / 2}
+                      y2={target.y}
+                      stroke="#cbd5e1"
+                      strokeWidth="2"
+                      markerEnd="url(#arrowGray)"
+                    />
+                  );
+                }
+                return null;
+              })}
+            </g>
+          );
+        } else if (index >= 2 && index < 5) {
+          // Nodes 2,3,4 connecting to last node
+          const lastNode = flowNodes[flowNodes.length - 1];
+          return (
+            <line
+              key={`line-${index}`}
+              x1={node.x + nodeWidth / 2}
+              y1={node.y + nodeHeight}
+              x2={lastNode.x + nodeWidth / 2}
+              y2={lastNode.y}
+              stroke="#cbd5e1"
+              strokeWidth="2"
+              markerEnd="url(#arrowGray)"
+            />
+          );
+        }
+        return null;
+      })}
+
+      {/* Draw nodes */}
+      {flowNodes.map((node) => (
+        <g key={node.id}>
+          <rect
+            x={node.x}
+            y={node.y}
+            width={nodeWidth}
+            height={nodeHeight}
+            rx="8"
+            fill={getNodeColor(node.status)}
+            opacity="0.9"
+            className="workflow-node-rect"
+          />
+          <text x={node.x + nodeWidth / 2} y={node.y + 35} textAnchor="middle" fill="white" fontSize="12" fontWeight="600" style={{ pointerEvents: 'none' }}>
+            {node.name}
+          </text>
+          <text x={node.x + nodeWidth / 2} y={node.y + 55} textAnchor="middle" fill="rgba(255,255,255,0.8)" fontSize="10" style={{ pointerEvents: 'none' }}>
+            {node.status}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 function App() {
   const [action, setAction] = useState<ActionType>('ai');
@@ -479,7 +629,13 @@ Note: This is a simulated AI response. For real, contextually accurate responses
 
         <section className="pane flow-pane">
           <div className="workflow-card">
-            <h2>n8n Flow Structure</h2>
+            <h2>n8n Flow Diagram</h2>
+            <p className="small-note">Visual representation of the workflow execution path.</p>
+            <WorkflowDiagram nodes={workflowNodes} />
+          </div>
+
+          <div className="workflow-card">
+            <h2>n8n Flow Structure (Details)</h2>
             <p className="small-note">This is the current workflow path for your webhook execution.</p>
             <div className="workflow-list">
               {workflowNodes.map((node) => (
