@@ -1,0 +1,181 @@
+{
+  "name": "React → n8n: AI + Gmail + Calendar",
+  "description": "Webhook-triggered workflow that routes to AI Agent, Gmail search, or Google Calendar event creation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "react-webhook",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 200],
+      "webhookId": ""
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [],
+          "number": [],
+          "string": [
+            {
+              "value1": "={{$json[\"action\"]}}",
+              "operation": "equal",
+              "value2": "ai"
+            },
+            {
+              "value1": "={{$json[\"action\"]}}",
+              "operation": "equal",
+              "value2": "read-email"
+            },
+            {
+              "value1": "={{$json[\"action\"]}}",
+              "operation": "equal",
+              "value2": "create-event"
+            }
+          ]
+        }
+      },
+      "name": "Route by Action",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 200]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o",
+        "prompt": "={{$json[\"prompt\"]}}",
+        "options": {}
+      },
+      "name": "AI Agent",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [680, 80],
+      "credentials": {
+        "openAiApi": "OpenAI - API Key"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "list",
+        "options": {
+          "filters": {
+            "query": "={{$json[\"emailQuery\"]}}"
+          }
+        }
+      },
+      "name": "Gmail Search",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [680, 200],
+      "credentials": {
+        "gmailOAuth2": "Gmail - OAuth2"
+      }
+    },
+    {
+      "parameters": {
+        "resource": "event",
+        "operation": "create",
+        "calendarId": "primary",
+        "title": "={{$json[\"eventTitle\"]}}",
+        "description": "={{$json[\"eventDescription\"]}}",
+        "start": "={{$json[\"eventDate\"] + 'T' + $json[\"eventTime\"] + ':00Z'}}",
+        "end": "={{$json[\"eventDate\"] + 'T' + $json[\"eventTime\"] + ':00Z'}}",
+        "options": {
+          "guestsCanModify": true
+        }
+      },
+      "name": "Create Calendar Event",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [680, 320],
+      "credentials": {
+        "googleCalendarOAuth2": "Google Calendar - OAuth2"
+      }
+    },
+    {
+      "parameters": {
+        "statusCode": 200,
+        "responseBody": "={{JSON.stringify({answer: $node[\\\"AI Agent\\\"].json.choices[0].message.content || $node[\\\"Gmail Search\\\"].json.messages || $node[\\\"Create Calendar Event\\\"].json, execution: { action: $json.action, status: \\\"success\\\", timestamp: new Date().toISOString() }})}}"
+      },
+      "name": "Return Response",
+      "type": "n8n-nodes-base.httpResponse",
+      "typeVersion": 1,
+      "position": [900, 200]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Route by Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Action": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Create Calendar Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail Search": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Calendar Event": {
+      "main": [
+        [
+          {
+            "node": "Return Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
